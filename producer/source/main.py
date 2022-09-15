@@ -11,8 +11,6 @@ from threading import Thread
 from kafka import KafkaProducer, KafkaConsumer
 from queue import Queue
 
-latenciesQueue = Queue()
-
 logging.basicConfig(level=logging.INFO)
 
 prom_end_to_end_latency = Gauge('kafka_end_to_end_latency', 'Kafka end to end latency')
@@ -54,8 +52,7 @@ def consumer_loop(endpoints, topic, group_name):
         event_time = int(msg.headers[0][1].decode())
         latency = int(timestamp_ms()) - int(event_time)
         prom_end_to_end_latency.inc(latency)
-        latenciesQueue.put(latency)
-        logging.info(latency)
+        logging.debug(latency)
 
 
 def random_string(n):
