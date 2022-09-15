@@ -45,8 +45,11 @@ services:
       - BOOTSTRAP_SERVERS=redpanda:9092,
       - TOPIC_NAME=filebeat
       - INIT_DELAY=0
-      - BATCH_SIZE=1000
-      - BATCH_DELAY=1000
+      - SEND_SIZE=1000
+      - SEND_DELAY=1000
+      - BATCH_SIZE=16384
+      - LINGER_MS=0
+      - COMPRESSION=gzip
       - MESSAGE_SIZE=1024
       - GROUP_NAME="seemscloud"
       - PROMETHEUS_MULTIPROC_DIR=/tmp/

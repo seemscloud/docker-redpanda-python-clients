@@ -26,22 +26,22 @@ def flush(self):
     self.producer.flush()
 
 
-def producer_loop(endpoints, topic, batch_size, batch_delay, message_size):
+def producer_loop(endpoints, topic, send_size, send_delay, message_size, batch_size, linger_ms, compression_type):
     producer = KafkaProducer(bootstrap_servers=endpoints,
                              value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-                             linger_ms=0, batch_size=16384, compression_type='gzip')
+                             linger_ms=linger_ms, batch_size=batch_size, compression_type=compression_type)
 
     batch_iter = 0
 
     while True:
-        for _ in range(batch_size):
+        for _ in range(send_size):
             headers = compose_headers()
             content = random_string(message_size)
 
             producer.send(topic, content, headers=headers)
             producer.flush()
 
-        time.sleep(batch_delay)
+        time.sleep(send_delay)
         batch_iter += 1
 
 
@@ -87,14 +87,22 @@ def calc_delay(delay):
 
 
 def main():
-    batch_size = int(os.environ["BATCH_SIZE"])
-    batch_delay = calc_delay(os.environ["BATCH_DELAY"])
+    send_size = int(os.environ["SEND_SIZE"])
+    send_delay = calc_delay(os.environ["SEND_DELAY"])
     message_size = int(os.environ["MESSAGE_SIZE"])
     topic_name = os.environ["TOPIC_NAME"]
     group_name = os.environ["GROUP_NAME"]
+
+    batch_size = int(os.environ["BATCH_SIZE"])
+    linger_ms = int(os.environ["LINGER_MS"])
+    compression_type = os.environ["COMPRESSION"]
+
     endpoints = parse_servers(os.environ["BOOTSTRAP_SERVERS"])
 
-    Process(target=producer_loop, args=(endpoints, topic_name, batch_size, batch_delay, message_size)).start()
+    Process(target=producer_loop, args=(
+        endpoints, topic_name, send_size, send_delay,
+        message_size, batch_size, linger_ms, compression_type)).start()
+
     Process(target=consumer_loop, args=(endpoints, topic_name, group_name)).start()
 
 
