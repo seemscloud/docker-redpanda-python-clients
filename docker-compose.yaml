@@ -40,6 +40,7 @@ services:
       context: ./producer
     ports:
       - "8000:8000"
+    restart: always
     environment:
       - BOOTSTRAP_SERVERS=redpanda:9092,
       - TOPIC_NAME=filebeat
@@ -49,4 +50,5 @@ services:
       - MESSAGE_SIZE=1024
       - GROUP_NAME="seemscloud"
       - PROMETHEUS_MULTIPROC_DIR=/tmp/
+      - LOG_LEVEL=INFO
 

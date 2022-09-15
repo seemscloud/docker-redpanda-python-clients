@@ -7,11 +7,14 @@ import random
 
 from prometheus_client import start_http_server, Counter, Gauge, multiprocess, CollectorRegistry
 from multiprocessing import Process
-from threading import Thread
 from kafka import KafkaProducer, KafkaConsumer
-from queue import Queue
 
-logging.basicConfig(level=logging.INFO)
+# from queue import Queue
+# from threading import Thread
+
+LOGLEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+print(LOGLEVEL)
+logging.basicConfig(level=LOGLEVEL)
 
 prom_end_to_end_latency = Gauge('kafka_end_to_end_latency', 'Kafka end to end latency')
 
@@ -30,8 +33,6 @@ def producer_loop(endpoints, topic, batch_size, batch_delay, message_size):
     batch_iter = 0
 
     while True:
-        logging.info("Batch details ID: {}, size: {}'..".format(batch_iter, batch_size))
-
         for _ in range(batch_size):
             headers = compose_headers()
             content = random_string(message_size)
@@ -39,7 +40,6 @@ def producer_loop(endpoints, topic, batch_size, batch_delay, message_size):
             producer.send(topic, content, headers=headers)
             producer.flush()
 
-        logging.info("Batch sleep {} seconds..".format(batch_delay))
         time.sleep(batch_delay)
         batch_iter += 1
 
@@ -52,7 +52,6 @@ def consumer_loop(endpoints, topic, group_name):
         event_time = int(msg.headers[0][1].decode())
         latency = int(timestamp_ms()) - int(event_time)
         prom_end_to_end_latency.inc(latency)
-        logging.debug(latency)
 
 
 def random_string(n):
@@ -93,7 +92,6 @@ if __name__ == "__main__":
     start_http_server(8000, registry=registry)
 
     init_delay = calc_delay(os.environ["INIT_DELAY"])
-    logging.info("Init delay {}..".format(init_delay))
     time.sleep(init_delay)
 
     main()
