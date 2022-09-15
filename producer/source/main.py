@@ -8,8 +8,7 @@ import statistics
 
 from kafka import KafkaProducer, KafkaConsumer
 
-# from queue import Queue
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 from threading import Thread
 from prometheus_client import start_http_server, Counter, Gauge, multiprocess, CollectorRegistry
 
@@ -28,7 +27,10 @@ def flush(self):
 
 
 def producer_loop(endpoints, topic, batch_size, batch_delay, message_size):
-    producer = KafkaProducer(bootstrap_servers=endpoints, value_serializer=lambda v: json.dumps(v).encode('utf-8'))
+    producer = KafkaProducer(bootstrap_servers=endpoints,
+                             value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+                             linger_ms=0,
+                             batch_size=16384)
 
     batch_iter = 0
 
@@ -44,22 +46,25 @@ def producer_loop(endpoints, topic, batch_size, batch_delay, message_size):
         batch_iter += 1
 
 
+def calc_latency(latenciesQueue):
+    while True:
+        latencies = [0]
+        for i in range(latenciesQueue.qsize()):
+            latencies.append(latenciesQueue.get())
+        prom_end_to_end_latency.inc(statistics.mean(latencies))
+        time.sleep(1)
+
+
 def consumer_loop(endpoints, topic, group_name):
     consumer = KafkaConsumer(topic, bootstrap_servers=endpoints, enable_auto_commit=False, group_id=group_name,
                              value_deserializer=lambda x: json.loads(x.decode('utf-8')))
 
-    i = 1
-    latencies = []
+    latenciesQueue = Queue()
+
+    Process(target=calc_latency, args=(latenciesQueue,)).start()
 
     for msg in consumer:
-        event_time = int(msg.headers[0][1].decode())
-        latency = int(timestamp_ms()) - int(event_time)
-        latencies.append(latency)
-
-        i += 1
-        if i >= 1000:
-            i = 0
-            prom_end_to_end_latency.inc(statistics.mean(latencies))
+        latenciesQueue.put(int(timestamp_ms()) - int(msg.headers[0][1].decode()))
 
 
 def random_string(n):
