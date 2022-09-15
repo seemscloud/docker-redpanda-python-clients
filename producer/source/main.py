@@ -29,8 +29,7 @@ def flush(self):
 def producer_loop(endpoints, topic, batch_size, batch_delay, message_size):
     producer = KafkaProducer(bootstrap_servers=endpoints,
                              value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-                             linger_ms=0,
-                             batch_size=16384)
+                             linger_ms=0, batch_size=16384, compression_type='gzip')
 
     batch_iter = 0
 
