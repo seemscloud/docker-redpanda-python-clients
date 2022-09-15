@@ -4,16 +4,16 @@ import time
 import logging
 import string
 import random
+import statistics
 
-from prometheus_client import start_http_server, Counter, Gauge, multiprocess, CollectorRegistry
-from multiprocessing import Process
 from kafka import KafkaProducer, KafkaConsumer
 
 # from queue import Queue
-# from threading import Thread
+from multiprocessing import Process
+from threading import Thread
+from prometheus_client import start_http_server, Counter, Gauge, multiprocess, CollectorRegistry
 
 LOGLEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
-print(LOGLEVEL)
 logging.basicConfig(level=LOGLEVEL)
 
 prom_end_to_end_latency = Gauge('kafka_end_to_end_latency', 'Kafka end to end latency')
@@ -48,10 +48,18 @@ def consumer_loop(endpoints, topic, group_name):
     consumer = KafkaConsumer(topic, bootstrap_servers=endpoints, enable_auto_commit=False, group_id=group_name,
                              value_deserializer=lambda x: json.loads(x.decode('utf-8')))
 
+    i = 1
+    latencies = []
+
     for msg in consumer:
         event_time = int(msg.headers[0][1].decode())
         latency = int(timestamp_ms()) - int(event_time)
-        prom_end_to_end_latency.inc(latency)
+        latencies.append(latency)
+
+        i += 1
+        if i >= 1000:
+            i = 0
+            prom_end_to_end_latency.inc(statistics.mean(latencies))
 
 
 def random_string(n):
