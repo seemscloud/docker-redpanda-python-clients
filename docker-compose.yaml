@@ -35,11 +35,10 @@ services:
       - PLAINTEXT://redpanda:8082,OUTSIDE://localhost:82082
   producer:
     hostname: producer
-    container_name: producer
+    deploy:
+      replicas: 50
     build:
       context: ./producer
-    ports:
-      - "8000:8000"
     restart: always
     environment:
       - BOOTSTRAP_SERVERS=redpanda:9092,
