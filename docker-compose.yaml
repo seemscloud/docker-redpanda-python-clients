@@ -45,8 +45,6 @@ services:
       - BOOTSTRAP_SERVERS=redpanda:9092,
       - TOPIC_NAME=filebeat
       - INIT_DELAY=0
-      - SEND_SIZE=1000
-      - SEND_DELAY=1000
       - BATCH_SIZE=16384
       - LINGER_MS=0
       - COMPRESSION=gzip
@@ -54,4 +52,15 @@ services:
       - GROUP_NAME="seemscloud"
       - PROMETHEUS_MULTIPROC_DIR=/tmp/
       - LOG_LEVEL=INFO
-
+  prometheus:
+    build:
+      context: ./prometheus
+    container_name: prometheus
+    hostname: prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    volumes:
+      - ${PWD}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: always
