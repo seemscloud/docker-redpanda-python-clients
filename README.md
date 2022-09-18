@@ -1,7 +1,7 @@
 ```bash
-docker build . --tag theanotherwise/kafka-end-to-end-latency:latest
+docker build . --tag theanotherwise/kafka-end-to-end-latency:1.0.0
 
-docker push theanotherwise/kafka-end-to-end-latency:latest
+docker push theanotherwise/kafka-end-to-end-latency:1.0.0
 ```
 
 ```bash
