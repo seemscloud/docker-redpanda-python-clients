@@ -27,12 +27,14 @@ def flush(self):
     self.producer.flush()
 
 
-def producer_loop(endpoints, topic, message_size, batch_size, linger_ms, compression_type):
+def producer_loop(endpoints, topic, message_size, batch_size, linger_ms, compression_type, acks):
     if compression_type == "None":
         compression_type = None
+
     producer = KafkaProducer(bootstrap_servers=endpoints,
                              value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-                             linger_ms=linger_ms, batch_size=batch_size, compression_type=compression_type)
+                             linger_ms=linger_ms, batch_size=batch_size, compression_type=compression_type,
+                             acks=acks)
 
     content = random_string(message_size)
 
@@ -95,13 +97,13 @@ def main():
     batch_size = int(os.environ["BATCH_SIZE"])
     linger_ms = int(os.environ["LINGER_MS"])
     compression_type = os.environ["COMPRESSION"]
+    acks = os.environ["ACKS"]
 
     percentage_value = float(os.environ["PERCENTAGE_VALUE"])
-
     endpoints = parse_servers(os.environ["BOOTSTRAP_SERVERS"])
 
     Process(target=producer_loop, args=(
-        endpoints, topic_name, message_size, batch_size, linger_ms, compression_type)).start()
+        endpoints, topic_name, message_size, batch_size, linger_ms, compression_type, acks)).start()
 
     Process(target=consumer_loop, args=(endpoints, topic_name, group_name, percentage_value)).start()
 

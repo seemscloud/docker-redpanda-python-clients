@@ -48,8 +48,9 @@ services:
       - LINGER_MS=0
       - COMPRESSION=None
       - MESSAGE_SIZE=1024
-      - GROUP_NAME="seemscloud"
-      - PERCENTAGE_VALUE=3.0
+      - ACKS=all
+      - GROUP_NAME=seemscloud
+      - PERCENTAGE_VALUE=4.0
       - PROMETHEUS_MULTIPROC_DIR=/tmp/
       - LOG_LEVEL=INFO
   prometheus:
