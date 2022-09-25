@@ -6,8 +6,8 @@ import string
 import random
 import statistics
 
+from scipy import stats
 from kafka import KafkaProducer, KafkaConsumer
-
 from multiprocessing import Process, Queue
 from threading import Thread
 from prometheus_client import start_http_server, Counter, Gauge, multiprocess, CollectorRegistry
@@ -15,7 +15,8 @@ from prometheus_client import start_http_server, Counter, Gauge, multiprocess, C
 LOGLEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOGLEVEL)
 
-prom_end_to_end_latency = Gauge('kafka_end_to_end_latency', 'Kafka end to end latency')
+kafka_end_to_end_avg_latency = Gauge('kafka_end_to_end_avg_latency', 'Kafka end to end latency')
+kafka_end_to_end_perc_latency = Gauge('kafka_end_to_end_perc_latency', 'Kafka end to end latency')
 
 
 def compose_headers():
@@ -42,22 +43,25 @@ def producer_loop(endpoints, topic, message_size, batch_size, linger_ms, compres
         producer.flush()
 
 
-def calc_latency(latenciesQueue):
+def calc_latency(latenciesQueue, percentage_value):
     while True:
         latencies = [0]
         for i in range(latenciesQueue.qsize()):
             latencies.append(latenciesQueue.get())
-        prom_end_to_end_latency.inc(statistics.mean(latencies))
+
+        kafka_end_to_end_avg_latency.inc(statistics.mean(latencies))
+        kafka_end_to_end_perc_latency.inc(stats.percentileofscore(latencies, percentage_value, kind='mean'))
+
         time.sleep(1)
 
 
-def consumer_loop(endpoints, topic, group_name):
+def consumer_loop(endpoints, topic, group_name, percentage_value):
     consumer = KafkaConsumer(topic, bootstrap_servers=endpoints, enable_auto_commit=False, group_id=group_name,
                              value_deserializer=lambda x: json.loads(x.decode('utf-8')))
 
     latenciesQueue = Queue()
 
-    Process(target=calc_latency, args=(latenciesQueue,)).start()
+    Process(target=calc_latency, args=(latenciesQueue, percentage_value,)).start()
 
     for msg in consumer:
         latenciesQueue.put(int(timestamp_ms()) - int(msg.headers[0][1].decode()))
@@ -92,12 +96,14 @@ def main():
     linger_ms = int(os.environ["LINGER_MS"])
     compression_type = os.environ["COMPRESSION"]
 
+    percentage_value = int(os.environ["PERCENTAGE_VALUE"])
+
     endpoints = parse_servers(os.environ["BOOTSTRAP_SERVERS"])
 
     Process(target=producer_loop, args=(
         endpoints, topic_name, message_size, batch_size, linger_ms, compression_type)).start()
 
-    Process(target=consumer_loop, args=(endpoints, topic_name, group_name)).start()
+    Process(target=consumer_loop, args=(endpoints, topic_name, group_name, percentage_value)).start()
 
 
 if __name__ == "__main__":

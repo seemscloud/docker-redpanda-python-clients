@@ -36,7 +36,7 @@ services:
   producer:
     hostname: producer
     deploy:
-      replicas: 5
+      replicas: 1
     build:
       context: ./producer
     restart: always
@@ -46,9 +46,10 @@ services:
       - INIT_DELAY=0
       - BATCH_SIZE=16384
       - LINGER_MS=0
-      - COMPRESSION=gzip
+      - COMPRESSION=None
       - MESSAGE_SIZE=1024
       - GROUP_NAME="seemscloud"
+      - PERCENTAGE_VALUE=5
       - PROMETHEUS_MULTIPROC_DIR=/tmp/
       - LOG_LEVEL=INFO
   prometheus:
