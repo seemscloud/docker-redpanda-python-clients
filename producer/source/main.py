@@ -96,7 +96,7 @@ def main():
     linger_ms = int(os.environ["LINGER_MS"])
     compression_type = os.environ["COMPRESSION"]
 
-    percentage_value = int(os.environ["PERCENTAGE_VALUE"])
+    percentage_value = float(os.environ["PERCENTAGE_VALUE"])
 
     endpoints = parse_servers(os.environ["BOOTSTRAP_SERVERS"])
 
