@@ -23,7 +23,7 @@ RUN python3 -m venv venv && \
     pip3 install kafka-python prometheus-client && \
     mkdir -p app
 
-RUN pip3 install scipy
+RUN pip3 install numpy
 
 COPY ./source app
 COPY docker-entrypoint.sh .

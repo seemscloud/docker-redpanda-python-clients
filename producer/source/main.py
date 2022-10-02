@@ -6,7 +6,8 @@ import string
 import random
 import statistics
 
-from scipy import stats
+import numpy as np
+
 from kafka import KafkaProducer, KafkaConsumer
 from multiprocessing import Process, Queue
 from threading import Thread
@@ -16,7 +17,11 @@ LOGLEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOGLEVEL)
 
 kafka_end_to_end_avg_latency = Gauge('kafka_end_to_end_avg_latency', 'Kafka end to end latency')
-kafka_end_to_end_perc_latency = Gauge('kafka_end_to_end_perc_latency', 'Kafka end to end latency')
+kafka_end_to_end_perc_50_latency = Gauge('kafka_end_to_end_perc_50_latency', 'Kafka end to end latency')
+kafka_end_to_end_perc_90_latency = Gauge('kafka_end_to_end_perc_90_latency', 'Kafka end to end latency')
+kafka_end_to_end_perc_95_latency = Gauge('kafka_end_to_end_perc_95_latency', 'Kafka end to end latency')
+kafka_end_to_end_perc_99_9_latency = Gauge('kafka_end_to_end_perc_99_9_latency', 'Kafka end to end latency')
+kafka_end_to_end_perc_99_99_latency = Gauge('kafka_end_to_end_perc_99_99_latency', 'Kafka end to end latency')
 
 
 def compose_headers():
@@ -45,25 +50,31 @@ def producer_loop(endpoints, topic, message_size, batch_size, linger_ms, compres
         producer.flush()
 
 
-def calc_latency(latenciesQueue, percentage_value):
+def calc_latency(latenciesQueue):
     while True:
-        latencies = [0]
+        latencies = []
         for i in range(latenciesQueue.qsize()):
             latencies.append(latenciesQueue.get())
 
-        kafka_end_to_end_avg_latency.inc(statistics.mean(latencies))
-        kafka_end_to_end_perc_latency.inc(stats.percentileofscore(latencies, percentage_value, kind='mean'))
+        if latencies:
+            kafka_end_to_end_avg_latency.inc(statistics.mean(latencies))
+
+            kafka_end_to_end_perc_50_latency.inc(np.percentile(latencies, 50))
+            kafka_end_to_end_perc_90_latency.inc(np.percentile(latencies, 90))
+            kafka_end_to_end_perc_95_latency.inc(np.percentile(latencies, 95))
+            kafka_end_to_end_perc_99_9_latency.inc(np.percentile(latencies, 99.9))
+            kafka_end_to_end_perc_99_99_latency.inc(np.percentile(latencies, 99.99))
 
         time.sleep(1)
 
 
-def consumer_loop(endpoints, topic, group_name, percentage_value):
+def consumer_loop(endpoints, topic, group_name):
     consumer = KafkaConsumer(topic, bootstrap_servers=endpoints, enable_auto_commit=False, group_id=group_name,
                              value_deserializer=lambda x: json.loads(x.decode('utf-8')))
 
     latenciesQueue = Queue()
 
-    Process(target=calc_latency, args=(latenciesQueue, percentage_value,)).start()
+    Process(target=calc_latency, args=(latenciesQueue,)).start()
 
     for msg in consumer:
         latenciesQueue.put(int(timestamp_ms()) - int(msg.headers[0][1].decode()))
@@ -99,13 +110,12 @@ def main():
     compression_type = os.environ["COMPRESSION"]
     acks = os.environ["ACKS"]
 
-    percentage_value = float(os.environ["PERCENTAGE_VALUE"])
     endpoints = parse_servers(os.environ["BOOTSTRAP_SERVERS"])
 
     Process(target=producer_loop, args=(
         endpoints, topic_name, message_size, batch_size, linger_ms, compression_type, acks)).start()
 
-    Process(target=consumer_loop, args=(endpoints, topic_name, group_name, percentage_value)).start()
+    Process(target=consumer_loop, args=(endpoints, topic_name, group_name)).start()
 
 
 if __name__ == "__main__":
